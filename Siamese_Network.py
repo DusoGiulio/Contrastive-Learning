@@ -67,24 +67,75 @@ class SiameseNetwork(nn.Module):
         text_embedding = self.text_encoder(text)
         image_embedding = self.image_encoder(image)
         return text_embedding, image_embedding
-#Funzione di loss
+    
+
+    
+#Funzione di loss "leave one out"
 class Similarity_Loss_1_vs_all(nn.Module):
     def __init__(self, temperature=0.05):
         super(Similarity_Loss_1_vs_all, self).__init__()
         self.temperature = temperature
 
-    def forward(self, text_embeddings, image_embeddings, positive_pairs):
+    def forward(self, text_embeddings, image_embeddings):
         B = text_embeddings.shape[0]
         total_loss = 0
 
         for i in range(B):
-            text_i = text_embeddings[i].unsqueeze(0)
-            distances = torch.norm(text_i - image_embeddings, dim=1)
-            similarities = torch.exp(-distances / self.temperature)
+            image_i = image_embeddings[i].unsqueeze(0)
+            distances_image_text = torch.norm(image_i - text_embeddings, dim=1)
+            similarities_image_text = torch.exp(-distances_image_text / self.temperature)
 
-            numerator = similarities[i]
-            denominator = torch.sum(similarities) - similarities[i]
+            numerator = similarities_image_text[i]
 
-            total_loss += -torch.log(numerator / denominator)
+            # Calcola il denominatore: somma delle similarità tra l'immagine i-esima
+            # e tutti i testi che non sono il testo i-esimo
+            denominator = torch.sum(similarities_image_text) - similarities_image_text[i]
 
+            # Evita divisioni per zero nel caso (improbabile) che tutte le similarità siano zero
+            if denominator > 0:
+                total_loss += -torch.log(numerator / denominator)
+            else:
+                # Gestisci il caso in cui il denominatore è zero (potrebbe indicare problemi con i dati)
+                # Potresti restituire 0 o un valore molto grande per la loss
+                total_loss += 0.0  # O un altro valore appropriato
+
+        return total_loss / B
+
+#Funzione di loss per gruppi 
+class Similarity_Loss_group_deasease(nn.Module):
+    def __init__(self, temperature=0.05):
+        super(Similarity_Loss_group_deasease, self).__init__()
+        self.temperature = temperature
+
+    def forward(self, text_embeddings, image_embeddings, groups):
+        B = text_embeddings.shape[0]
+        total_loss = 0
+
+        for i in range(B):
+            text_i = text_embeddings[i].unsqueeze(0)  # (1, dim embedding)
+            distances = torch.norm(text_i - image_embeddings, dim=1)  # (B,)
+            similarities = torch.exp(-distances / self.temperature)  # (B,)
+
+            numerator = 0
+            denominator = 0
+
+            # Numeratore Similarità con esempi dello stesso gruppo escludendo se stesso
+            for j in range(B):
+                if groups[i] == groups[j] :  # Aggiunta la condizione i != j
+                    numerator += similarities[j]
+
+            # Denominatore Somma delle similarità con tutti gli esempi di ALTRI gruppi
+            for j in range(B):
+                if groups[i] != groups[j]:  # Considera solo esempi di altri gruppi
+                    denominator += similarities[j]
+
+            # Evita la divisione per zero
+            if denominator > 0 and numerator > 0:
+                total_loss += -torch.log(numerator / denominator)
+            #elif denominator == 0 and numerator >0: # gestione caso particolare con num >0 e den =0
+            #    total_loss += 0
+            #elif denominator > 0 and numerator ==0: # gestione caso particolare con den >0 e num =0
+            #    total_loss += 0
+            #elif denominator == 0 and numerator ==0: # gestione caso particolare con den = 0 e num =0
+            #    total_loss+=0
         return total_loss / B
