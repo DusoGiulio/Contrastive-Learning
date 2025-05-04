@@ -68,10 +68,10 @@ class SiameseNetwork(nn.Module):
         image_embedding = self.image_encoder(image)
         return text_embedding, image_embedding
        
-#Funzione di loss "leave one out"
-class Similarity_Loss_1_vs_all(nn.Module):
+#Funzione di loss "leave one out" SNN
+class Similarity_Loss_SNN(nn.Module):
     def __init__(self, temperature=0.05):
-        super(Similarity_Loss_1_vs_all, self).__init__()
+        super(Similarity_Loss_SNN, self).__init__()
         self.temperature = temperature
 
     def forward(self, text_embeddings, image_embeddings):
@@ -95,6 +95,33 @@ class Similarity_Loss_1_vs_all(nn.Module):
                 total_loss += 0.0
 
         return total_loss / B
+
+
+#Funzione di loss "leave one out" Sigmoid
+class Similarity_Loss_Sigmoid(nn.Module):
+    def __init__(self, temperature):
+        super(Similarity_Loss_Sigmoid, self).__init__()
+        self.temperature = temperature
+        self.bias = nn.Parameter(torch.zeros(1))
+
+    def forward(self, text_embeddings, image_embeddings):
+        B = text_embeddings.shape[0]
+        total_loss = 0
+
+        for i in range(B):
+            for j in range(B):
+                similarity = torch.dot(
+                    torch.nn.functional.normalize(image_embeddings[i].unsqueeze(0), p=2, dim=1).squeeze(0),
+                    torch.nn.functional.normalize(text_embeddings[j].unsqueeze(0), p=2, dim=1).squeeze(0)
+                )
+                logit = (similarity * -self.temperature) + self.bias
+                # Calcola la label corretta (1 se i==j, -1 altrimenti)
+                label = 1.0 if i == j else -1.0
+                loss_ij = torch.log(1/(1 + torch.exp(label * logit)))
+                total_loss += loss_ij
+
+        return -(total_loss / B)
+    
 
 class Similarity_Loss_grouped(nn.Module):
     def __init__(self, temperature=0.05):
