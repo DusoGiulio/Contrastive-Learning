@@ -28,9 +28,9 @@ def test_model(model, df_test, image_folder, transform, device):
             for other_index, other_row in df_test.iterrows():
                 text_emb_other, _ = model([other_row['report']], img)  
 
-                distance = torch.norm(image_emb - text_emb_other, p=4).item()  # Distanza euclidea
+                distance = torch.norm(image_emb - text_emb_other, p=2).item()
                 if other_index != index:
-                    if distance < torch.norm(image_emb - text_emb_positive, p=4).item():
+                    if distance < torch.norm(image_emb - text_emb_positive, p=2).item():
                         correct_prediction = False
                         break
             print(correct_prediction, index, other_index)

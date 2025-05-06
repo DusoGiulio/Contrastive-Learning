@@ -80,7 +80,7 @@ class Similarity_Loss_SNN(nn.Module):
 
         for i in range(B):
             image_i = image_embeddings[i].unsqueeze(0)
-            distances_image_text = torch.norm(image_i - text_embeddings, dim=1)
+            distances_image_text = torch.norm(image_i - text_embeddings, p=2,dim=1)
             similarities_image_text = torch.exp(-distances_image_text / self.temperature)
 
             numerator = similarities_image_text[i]
@@ -123,9 +123,9 @@ class Similarity_Loss_Sigmoid(nn.Module):
         return -(total_loss / B)
     
 
-class Similarity_Loss_grouped(nn.Module):
+class Similarity_Loss_grouped_SNN(nn.Module):
     def __init__(self, temperature=0.05):
-        super(Similarity_Loss_grouped, self).__init__()
+        super(Similarity_Loss_grouped_SNN, self).__init__()
         self.temperature = temperature
 
     def forward(self, text_embeddings, image_embeddings, groups):
@@ -134,7 +134,7 @@ class Similarity_Loss_grouped(nn.Module):
 
         for i in range(B):
             # Similarità tra l'immagine i-esima e TUTTI gli embedding di testo nel batch
-            distances_image_text = torch.norm(image_embeddings[i].unsqueeze(0) - text_embeddings, dim=1)
+            distances_image_text = torch.norm(image_embeddings[i].unsqueeze(0) - text_embeddings,p=2, dim=1, keepdim=True)
             similarities_image_text = torch.exp(-distances_image_text / self.temperature)
 
             # Numeratore: somma delle similarità con i testi dello STESSO GRUPPO escludendo se stesso
@@ -142,7 +142,46 @@ class Similarity_Loss_grouped(nn.Module):
             for j in range(B):
                 if groups[i] == groups[j] and i != j:
                     numerator += similarities_image_text[j]
+            if numerator ==0:
+                for j in range(B):
+                    if groups[i] == groups[j]:
+                        numerator += similarities_image_text[j]
+            # Denominatore: somma delle similarità con i testi di ALTRI GRUPPI
+            denominator = 0
+            for j in range(B):
+                if groups[i] != groups[j]:
+                    denominator += similarities_image_text[j]
+                    
+            if denominator != 0 and numerator != 0:
+                total_loss += -torch.log(numerator / denominator)
+            else:
+                total_loss += 0.0
 
+        return total_loss / B
+    
+class Similarity_Loss_grouped_Sigmoid(nn.Module):
+    def __init__(self, temperature=0.05):
+        super(Similarity_Loss_grouped_Sigmoid, self).__init__()
+        self.temperature = temperature
+
+    def forward(self, text_embeddings, image_embeddings, groups):
+        B = text_embeddings.shape[0]
+        total_loss = 0
+
+        for i in range(B):
+            # Similarità tra l'immagine i-esima e TUTTI gli embedding di testo nel batch
+            distances_image_text = torch.norm(image_embeddings[i].unsqueeze(0) - text_embeddings,p=2, dim=1, keepdim=True)
+            similarities_image_text = torch.exp(-distances_image_text / self.temperature)
+
+            # Numeratore: somma delle similarità con i testi dello STESSO GRUPPO escludendo se stesso
+            numerator = 0
+            for j in range(B):
+                if groups[i] == groups[j] and i != j:
+                    numerator += similarities_image_text[j]
+            if numerator ==0:
+                for j in range(B):
+                    if groups[i] == groups[j]:
+                        numerator += similarities_image_text[j]
             # Denominatore: somma delle similarità con i testi di ALTRI GRUPPI
             denominator = 0
             for j in range(B):
