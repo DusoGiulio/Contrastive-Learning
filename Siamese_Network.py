@@ -3,10 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 from chexnet.chexnet import DenseNet121
+import gc
 
 # RADBERT
 class TextEncoder(nn.Module):
-    def __init__(self, model_path="./bert/radbert_local", device='cuda'):
+    def __init__(self, model_path="./bert/radbert_local", device='cpu'):
         super(TextEncoder, self).__init__()
         self.device = device 
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -29,7 +30,7 @@ class TextEncoder(nn.Module):
 
 # Modello CheXNet per le immagini
 class ImageEncoder(nn.Module):
-    def __init__(self, model_path="chexnet/model.pth", device='cuda'):
+    def __init__(self, model_path="chexnet/model.pth", device='cpu'):
         super(ImageEncoder, self).__init__()
         self.device = device 
         self.model = DenseNet121(out_size=1024)
@@ -104,22 +105,36 @@ class Similarity_Loss_Sigmoid(nn.Module):
         self.temperature = temperature
         self.bias = nn.Parameter(torch.zeros(1))
 
+# Funzione di loss "leave one out" Sigmoid (VERSIONE VETTORIZZATA)
+class Similarity_Loss_Sigmoid(nn.Module):
+    def __init__(self, temperature):
+        super(Similarity_Loss_Sigmoid, self).__init__()
+        self.temperature = temperature
+        self.bias = nn.Parameter(torch.zeros(1))
+
     def forward(self, text_embeddings, image_embeddings):
+        # 1. Normalizzazione degli embedding
+        normalized_image_embeddings = F.normalize(image_embeddings, p=2, dim=1)
+        normalized_text_embeddings = F.normalize(text_embeddings, p=2, dim=1)
         B = text_embeddings.shape[0]
-        total_loss = 0
+        # 2. Calcolo della matrice di similarità 
+        # La moltiplicazione di matrici (dot product) tra (B, D) e (D, B) risulta in (B, B)
+        # dove B è la dimensione del batch e D è la dimensione dell'embedding.
+        similarity_matrix = torch.matmul(normalized_image_embeddings, normalized_text_embeddings.T)
 
-        for i in range(B):
-            for j in range(B):
-                similarity = torch.dot(
-                    torch.nn.functional.normalize(image_embeddings[i].unsqueeze(0), p=2, dim=1).squeeze(0),
-                    torch.nn.functional.normalize(text_embeddings[j].unsqueeze(0), p=2, dim=1).squeeze(0)
-                )
-                logit = (similarity * -self.temperature) + self.bias
-                # Calcola la label corretta (1 se i==j, -1 altrimenti)
-                label = 1.0 if i == j else -1.0
-                loss_ij = torch.log(1/(1 + torch.exp(label * logit)))
-                total_loss += loss_ij
+        # 3. Applicazione del logit e del bias
+        logit_matrix = (similarity_matrix * -self.temperature) + self.bias
 
+        # 4. Creazione della matrice delle label
+        # Questa matrice ha 1.0 sulla diagonale (corrispondenze positive) e -1.0 altrove (corrispondenze negative)
+        labels_matrix = torch.eye(text_embeddings.shape[0], device=text_embeddings.device) * 2.0 - 1.0
+
+        # 5. Calcolo della loss vettorizzata
+        loss_matrix = torch.log(1 / (1 + torch.exp(labels_matrix * logit_matrix)))
+
+        # 6. Somma e media della los
+        total_loss = torch.sum(loss_matrix)
+        
         return -(total_loss / B)
     
 
