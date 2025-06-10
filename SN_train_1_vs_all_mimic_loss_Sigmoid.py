@@ -10,8 +10,7 @@ import gc # Manteniamo l'import di gc
 # Assumi che Siamese_Network.py contenga le classi SiameseNetwork e Similarity_Loss_Sigmoid
 from Siamese_Network import SiameseNetwork, Similarity_Loss_Sigmoid
 
-# Funzione per caricare un batch di immagini e i relativi testi dal DataFrame
-# Modificata per caricare singole immagini/testi se row_ids è una lista con un solo elemento
+
 def load_batch_from_dataframe(df, image_folder, row_ids, transform, device):
     images = []
     texts = []

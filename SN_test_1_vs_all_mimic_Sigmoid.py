@@ -4,52 +4,60 @@ import os
 from torchvision import transforms
 from PIL import Image
 from torch.nn.functional import normalize
+import json 
 
-from Siamese_Network import SiameseNetwork
+from Siamese_Network import SiameseNetwork, Similarity_Loss_Sigmoid # Ensure Similarity_Loss_Sigmoid is imported
 
-def test_model(model, df_test, image_folder, transform, device):
-    correct_predictions = 0
-    total_predictions = len(df_test)
-
+def test_model(model, df_test, image_folder, transform, device, output_json_path="test_results.json"):
+    model.eval()  # Set the model to evaluation mode
+    results = []  # List to store results for JSON output
+    
     with torch.no_grad():
         for index, row in df_test.iterrows():
-            image_path = os.path.join(image_folder, f"image_{index}.png")
+            img_name = f"image_{index}.png" 
+            image_path = os.path.join(image_folder, img_name)
+            
             try:
-                img = transform(Image.open(image_path).convert('RGB')).unsqueeze(0).to(device)
+                img = Image.open(image_path).convert('RGB')
+                img_tensor = transform(img).unsqueeze(0).to(device)
             except FileNotFoundError:
-                print(f"Warning: Image file not found: {image_path}")
+                print('Image not Found')
+                continue
+            except (OSError, IndexError) as e:
                 continue
 
-            text_emb_positive, image_emb = model([row['report']], img)
-            image_emb = normalize(image_emb, p=2, dim=1)
-            text_emb_positive = normalize(text_emb_positive, p=2, dim=1)
+            text_report = row['report']
 
-            similarity_positive = torch.dot(image_emb.squeeze(0), text_emb_positive.squeeze(0)).item()
+            # Creo i due embedding
+            text_emb, image_emb = model([text_report], img_tensor) 
+            
+            # Normalizzo
+            image_emb_normalized = normalize(image_emb, p=2, dim=1)
+            text_emb_normalized = normalize(text_emb, p=2, dim=1)
 
-            correct_prediction = True
+            # Distanza con moltiplicazione vettoriale
+            similarity_positive = torch.dot(image_emb_normalized.squeeze(0), text_emb_normalized.squeeze(0)).item()
 
-            for other_index, other_row in df_test.iterrows():
-                if other_index == index:
-                    continue
+            # Store results for the current pair
+            results.append({
+                "Row_ID": index,
+                "image_embedding": image_emb_normalized.squeeze(0).cpu().numpy().tolist(), # Convert to list for JSON
+                "text_embedding": text_emb_normalized.squeeze(0).cpu().numpy().tolist(), # Convert to list for JSON
+                "positive_cosine_similarity": similarity_positive
+            })
+            
+    # Save results to JSON file
+    with open(output_json_path, 'w') as f:
+        json.dump(results, f, indent=4) 
 
-                text_emb_other, _ = model([other_row['report']], img)
-                text_emb_other = normalize(text_emb_other, p=2, dim=1)
-                similarity_other = torch.dot(image_emb.squeeze(0), text_emb_other.squeeze(0)).item()
+    print(f"Test results saved to {output_json_path}")
 
-                if similarity_other < similarity_positive:
-                    correct_prediction = False
-                    break
 
-            print(correct_prediction, index, other_index)
-            if correct_prediction:
-                correct_predictions += 1
-
-    accuracy = correct_predictions / total_predictions
-    print(f"Accuracy: {accuracy:.4f}")
 if __name__ == '__main__':
     csv_path_test = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/mimic_data/test.csv"
     image_folder_test = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/mimic_data/test_mimic"
     model_path = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/1_vs_all/mimic/modello/best_model.pth"
+    output_json_file = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/test_embeddings_and_similarity.json" 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -66,4 +74,4 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
-    test_model(model, df_test, image_folder_test, transform, device)
+    test_model(model, df_test, image_folder_test, transform, device, output_json_path=output_json_file)
