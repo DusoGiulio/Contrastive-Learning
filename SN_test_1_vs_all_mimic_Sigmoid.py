@@ -6,11 +6,11 @@ from PIL import Image
 from torch.nn.functional import normalize
 import json 
 
-from Siamese_Network import SiameseNetwork, Similarity_Loss_Sigmoid # Ensure Similarity_Loss_Sigmoid is imported
+from Siamese_Network import SiameseNetwork
 
 def test_model(model, df_test, image_folder, transform, device, output_json_path="test_results.json"):
-    model.eval()  # Set the model to evaluation mode
-    results = []  # List to store results for JSON output
+    model.eval()  
+    results = [] 
     
     with torch.no_grad():
         for index, row in df_test.iterrows():

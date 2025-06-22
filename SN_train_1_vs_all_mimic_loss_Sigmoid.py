@@ -8,7 +8,7 @@ from PIL import Image
 import gc # Manteniamo l'import di gc
 
 # Assumi che Siamese_Network.py contenga le classi SiameseNetwork e Similarity_Loss_Sigmoid
-from Siamese_Network import SiameseNetwork, Similarity_Loss_Sigmoid
+from Siamese_Network import SiameseNetwork, Similarity_Loss_Sigmoid_Vectorized
 
 
 def load_batch_from_dataframe(df, image_folder, row_ids, transform, device):
@@ -221,6 +221,6 @@ if __name__ == '__main__':
     model = SiameseNetwork(device=device).to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     # Assicurati che Similarity_Loss_Sigmoid sia la versione vettorizzata
-    loss_fn = Similarity_Loss_Sigmoid(0.1)
+    loss_fn = Similarity_Loss_Sigmoid_Vectorized(0.1)
     loss_fn = loss_fn.to(device)
     train_leave_one_out_from_folder(model, df_train, df_val, image_folder, loss_fn, optimizer, batch_size=11413, epochs=100,device=device, patience=5, save_folder=save_folder)

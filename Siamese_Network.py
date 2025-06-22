@@ -98,17 +98,11 @@ class Similarity_Loss_SNN(nn.Module):
         return total_loss / B
 
 
-#Funzione di loss "leave one out" Sigmoid
-class Similarity_Loss_Sigmoid(nn.Module):
-    def __init__(self, temperature):
-        super(Similarity_Loss_Sigmoid, self).__init__()
-        self.temperature = temperature
-        self.bias = nn.Parameter(torch.zeros(1))
 
-# Funzione di loss "leave one out" Sigmoid (VERSIONE VETTORIZZATA)
-class Similarity_Loss_Sigmoid(nn.Module):
+# Funzione di loss "leave one out" Sigmoid
+class Similarity_Loss_Sigmoid_Vectorized(nn.Module):
     def __init__(self, temperature):
-        super(Similarity_Loss_Sigmoid, self).__init__()
+        super(Similarity_Loss_Sigmoid_Vectorized, self).__init__()
         self.temperature = temperature
         self.bias = nn.Parameter(torch.zeros(1))
 
@@ -136,8 +130,34 @@ class Similarity_Loss_Sigmoid(nn.Module):
         total_loss = torch.sum(loss_matrix)
         
         return -(total_loss / B)
-    
+##############################################################################################################################
+# Funzione di loss "leave one out" Sigmoid
+class Similarity_Loss_Sigmoid_Cyclic(nn.Module):
+    def __init__(self, temperature):
+        super(Similarity_Loss_Sigmoid_Cyclic, self).__init__()
+        self.temperature = temperature
+        self.bias = nn.Parameter(torch.zeros(1))
 
+    def forward(self, text_embeddings, image_embeddings):
+        B = text_embeddings.shape[0]
+        total_loss = 0
+
+        for i in range(B):
+            # print(i) # Rimosso per chiarezza nell'analisi
+            for j in range(B):
+                similarity = torch.dot(
+                    torch.nn.functional.normalize(image_embeddings[i].unsqueeze(0), p=2, dim=1).squeeze(0),
+                    torch.nn.functional.normalize(text_embeddings[j].unsqueeze(0), p=2, dim=1).squeeze(0)
+                )
+                logit = (similarity * -self.temperature) + self.bias
+                # Calcola la label corretta (1 se i==j, -1 altrimenti)
+                label = 1.0 if i == j else -1.0
+                loss_ij = torch.log(1/(1 + torch.exp(label * logit)))
+                total_loss += loss_ij
+        torch.cuda.empty_cache() 
+        gc.collect() 
+        return -(total_loss / B)
+##############################################################################################################################
 class Similarity_Loss_grouped_SNN(nn.Module):
     def __init__(self, temperature=0.05):
         super(Similarity_Loss_grouped_SNN, self).__init__()
