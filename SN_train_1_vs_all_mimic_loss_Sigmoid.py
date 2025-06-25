@@ -196,7 +196,7 @@ def train_leave_one_out_from_folder(model, df_train, df_val, image_folder, loss_
         # Early stopping check
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), os.path.join(save_folder, "best_model.pth"))
+            torch.save(model.state_dict(), os.path.join(save_folder, "best_model_1.pth"))
             epochs_without_improvement = 0
         else:
             epochs_without_improvement += 1
@@ -221,6 +221,6 @@ if __name__ == '__main__':
     model = SiameseNetwork(device=device).to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     # Assicurati che Similarity_Loss_Sigmoid sia la versione vettorizzata
-    loss_fn = Similarity_Loss_Sigmoid_Vectorized(0.1)
+    loss_fn = Similarity_Loss_Sigmoid_Vectorized(1)
     loss_fn = loss_fn.to(device)
     train_leave_one_out_from_folder(model, df_train, df_val, image_folder, loss_fn, optimizer, batch_size=11413, epochs=100,device=device, patience=5, save_folder=save_folder)

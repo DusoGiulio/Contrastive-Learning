@@ -4,14 +4,14 @@ from pymilvus.client.types import DataType
 from pymilvus.orm.schema import CollectionSchema, FieldSchema
 import torch 
 
-json_file_path = r"test_embeddings_and_similarity.json"
-output_json_file_path = "milvus_search_data_test.json"
+json_file_path = r"test_embeddings_and_similarity_t1.json"
+output_json_file_path = "milvus_search_data_test_t1.json"
 
 # --- 1. Connettiti al tuo server Milvus ---
 client = MilvusClient(uri="http://localhost:19530")
 
 # --- 2. Definisci lo schema della collezione  ---
-COLLECTION_NAME = "my_image_embeddings_for_text_query" 
+COLLECTION_NAME = "Sigmoid_one_all_t1" 
 VECTOR_DIMENSION = 1024
 
 # Definisci i campi per la collezione delle immagini: solo ID e image_embedding
@@ -38,7 +38,7 @@ schema = CollectionSchema(
 index_params = client.prepare_index_params()
 index_params.add_index(
     field_name="image_embedding", # L'indice è sul campo dell'immagine
-    metric_type="IP",          # Metrica Inner Product 
+    metric_type="COSINE",          # Metrica Inner Product 
     index_type="HNSW",
     params={"M": 8, "efConstruction": 64}
 )
