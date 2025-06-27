@@ -56,8 +56,8 @@ def test_model(model, df_test, image_folder, transform, device, output_json_path
 if __name__ == '__main__':
     csv_path_test = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/mimic_data/test.csv"
     image_folder_test = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/mimic_data/test_mimic"
-    model_path = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/1_vs_all/mimic/modello/best_model_1.pth"
-    output_json_file = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/test_embeddings_and_similarity_t1.json" 
+    model_path = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/1_vs_all/mimic/modello/best_model_test.pth"
+    output_json_file = "C:/Users/Giulio/anaconda3/envs/pythorch_env/src/ContrastiveLearning/test_embeddings_and_similarity_t10.json" 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

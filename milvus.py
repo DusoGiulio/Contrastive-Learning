@@ -4,14 +4,16 @@ from pymilvus.client.types import DataType
 from pymilvus.orm.schema import CollectionSchema, FieldSchema
 import torch 
 
-json_file_path = r"test_embeddings_and_similarity_t1.json"
-output_json_file_path = "milvus_search_data_test_t1.json"
-
+json_file_path = r"test_embeddings_and_similarity_t10.json"
+output_json_file_path = "milvus_search_data_test_t10.json"
+#json_file_path = r"test_embeddings_and_similarity_t1.json"
+#output_json_file_path = "milvus_search_data_test_t1.json"
 # --- 1. Connettiti al tuo server Milvus ---
 client = MilvusClient(uri="http://localhost:19530")
 
 # --- 2. Definisci lo schema della collezione  ---
-COLLECTION_NAME = "Sigmoid_one_all_t1" 
+COLLECTION_NAME = "Sigmoid_one_all_t10"
+#COLLECTION_NAME = "Sigmoid_one_all_t1" 
 VECTOR_DIMENSION = 1024
 
 # Definisci i campi per la collezione delle immagini: solo ID e image_embedding
@@ -118,7 +120,7 @@ if entities_to_insert_into_milvus:
                     limit=5, # Restituisci i 5 risultati più simili per ogni query
                     search_field="image_embedding",  # La ricerca avviene sul campo delle IMMAGINI
                     output_fields=["id"], # Restituisci l'ID dell'immagine trovata
-                    metric_type="IP"     # Metrica di similarità (Inner Product)
+                    metric_type="COSINE"     # Metrica di similarità (Inner Product)
                 )
 
                 formatted_hits = []
@@ -126,7 +128,7 @@ if entities_to_insert_into_milvus:
                     for hit in search_results[0]:
                         formatted_hits.append({
                             "found_image_id": hit['id'],
-                            "similarity_distance_ip": hit['distance']
+                            "similarity_distance_cosine": hit['distance']
                         })
                 
                 all_search_results.append({

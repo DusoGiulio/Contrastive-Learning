@@ -151,11 +151,13 @@ def train_leave_one_out_from_folder(model, df_train, df_val, image_folder, loss_
                 
                 batch_text_embeddings.append(text_emb)
                 batch_image_embeddings.append(image_emb)
-                
-                # Svuota la cache CUDA dopo ogni elaborazione di coppia
-                gc.collect()
-                torch.cuda.empty_cache()
+                if i%1000==0:
+                    # Svuota la cache CUDA dopo ogni elaborazione di coppia
+                    gc.collect()
+                    torch.cuda.empty_cache()
 
+            gc.collect()
+            torch.cuda.empty_cache()    
             # Concatena gli embedding raccolti per l'intero batch
             if len(batch_text_embeddings) > 0 and len(batch_image_embeddings) > 0:
                 batch_text_embeddings_tensor = torch.cat(batch_text_embeddings, dim=0)
@@ -163,9 +165,9 @@ def train_leave_one_out_from_folder(model, df_train, df_val, image_folder, loss_
 
                 # Calcola la loss sul batch di embedding
                 loss = loss_fn(batch_text_embeddings_tensor, batch_image_embeddings_tensor)
-                
+
                 # Accumula i gradienti e poi esegui l'optimizer.step()
-                loss.backward() # I gradienti si accumulano
+                loss.backward() 
                 total_loss += loss.item()
 
             batches_per_epoch = (total_rows + batch_size - 1) // batch_size
@@ -196,7 +198,7 @@ def train_leave_one_out_from_folder(model, df_train, df_val, image_folder, loss_
         # Early stopping check
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), os.path.join(save_folder, "best_model_1.pth"))
+            torch.save(model.state_dict(), os.path.join(save_folder, "best_model_test.pth"))
             epochs_without_improvement = 0
         else:
             epochs_without_improvement += 1
@@ -217,10 +219,11 @@ if __name__ == '__main__':
 
     df_train = pd.read_csv(csv_path_train)
     df_val = pd.read_csv(csv_path_val)
-
-    model = SiameseNetwork(device=device).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
     # Assicurati che Similarity_Loss_Sigmoid sia la versione vettorizzata
-    loss_fn = Similarity_Loss_Sigmoid_Vectorized(1)
+    loss_fn = Similarity_Loss_Sigmoid_Vectorized(10)
     loss_fn = loss_fn.to(device)
+    model = SiameseNetwork(device=device).to(device)
+    optimizer = optim.Adam(
+        list(model.parameters()) + list(loss_fn.parameters()), lr=0.001)
+    
     train_leave_one_out_from_folder(model, df_train, df_val, image_folder, loss_fn, optimizer, batch_size=11413, epochs=100,device=device, patience=5, save_folder=save_folder)

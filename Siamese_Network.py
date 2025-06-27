@@ -103,19 +103,19 @@ class Similarity_Loss_SNN(nn.Module):
 class Similarity_Loss_Sigmoid_Vectorized(nn.Module):
     def __init__(self, temperature):
         super(Similarity_Loss_Sigmoid_Vectorized, self).__init__()
-        self.temperature = temperature
-        self.bias = nn.Parameter(torch.zeros(1))
+        self.temperature = torch.nn.Parameter(torch.tensor(temperature, dtype=torch.float))
+        self.bias = nn.Parameter(torch.tensor([-10.0])) 
 
     def forward(self, text_embeddings, image_embeddings):
         # 1. Normalizzazione degli embedding
         normalized_image_embeddings = F.normalize(image_embeddings, p=2, dim=1)
         normalized_text_embeddings = F.normalize(text_embeddings, p=2, dim=1)
         B = text_embeddings.shape[0]
+        print(self.bias)
         # 2. Calcolo della matrice di similarità 
         # La moltiplicazione di matrici (dot product) tra (B, D) e (D, B) risulta in (B, B)
         # dove B è la dimensione del batch e D è la dimensione dell'embedding.
         similarity_matrix = torch.matmul(normalized_image_embeddings, normalized_text_embeddings.T)
-
         # 3. Applicazione del logit e del bias
         logit_matrix = (similarity_matrix * -self.temperature) + self.bias
 
@@ -128,7 +128,6 @@ class Similarity_Loss_Sigmoid_Vectorized(nn.Module):
 
         # 6. Somma e media della los
         total_loss = torch.sum(loss_matrix)
-        
         return -(total_loss / B)
 ##############################################################################################################################
 # Funzione di loss "leave one out" Sigmoid
